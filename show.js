@@ -3,6 +3,7 @@
 let fs = require('fs');
 let q = require('q');
 let https = require('https');
+let cheerio = require('cheerio');
 
 var UpdateDate = new Date();
 UpdateDate.setDate(UpdateDate.getDate() - 7);
@@ -12,6 +13,54 @@ let Show = function(showObj) {
   this.link = showObj.link;
   this.abbr = showObj.abbr;
 };
+
+/*************************************************************************************************
+ ** HTML Parsing **
+ *************************************************************************************************/
+
+// Header line is parsed to find the indexes of 'number', 'title' and 'date' columns (which can be different between shows)
+Show.prototype._parseHeaderLine = function($, headerColumns) {
+  let numberIndex = -1, titleIndex = -1, dateIndex = -1;
+  for(let h = 0; h < headerColumns.length; ++h) {
+    let headerText = $(headerColumns[h]).text();
+    if(headerText.match(/^No\.\s+in\s+season$/i) != null || headerText.match(/^No\.$/) != null) {
+      numberIndex = h;
+    } else if (headerText.match(/^Title$/i)) {
+      titleIndex = h;
+    } else if (headerText.match(/^.*air\s+date.*$/i)) {
+      dateIndex = h;
+    }
+  }
+  return {number: numberIndex, title: titleIndex, date: dateIndex};
+}
+
+Show.prototype.parseHtml = function() {
+  let $ = cheerio.load(this._html);
+  // Each season is a table with the class .wikiepisodetable
+  let seasons = $('.wikiepisodetable');
+
+  console.log(`= ${this.name}: ${seasons.length} potential seasons tables found.`);
+  for(var s = 0; s < seasons.length; ++s) {
+    let season = $(seasons[s]);
+    let allLines = season.find('tr');
+
+    // The header is the the first line of each table, parse it to find the indexes of 'number', 'title' and 'date' columns
+    let indexes = this._parseHeaderLine($, allLines.first().find('th'));
+    if(indexes.number == -1 || indexes.title == -1 || indexes.date == -1) {
+      let notFoundFields = [indexes.number, indexes.title, indexes.date].map((v, i) => v == -1 ? ['number', 'title', 'date'][i] : '').filter(v => v != '').join(', ');
+      console.log(`= Warning: ${notFoundFields} index(es) not found for show ${this.name}, season ${s + 1}. Ignoring this season`);
+      continue;
+    }
+
+    // TODO: parse episodes lines
+  }
+
+};
+
+
+/*************************************************************************************************
+ ** Read/Write HTML File **
+ *************************************************************************************************/
 
 Show.prototype.getFilename = function() {return './data/' + this.abbr + '.html'};
 
@@ -39,6 +88,11 @@ Show.prototype.writeFileAsync = function(deferred) {
     }
   });
 };
+
+
+/*************************************************************************************************
+ ** Get Remote HTML File **
+ *************************************************************************************************/
 
 Show.prototype.downloadHtmlAsync = function(deferred) {
   var result = "";

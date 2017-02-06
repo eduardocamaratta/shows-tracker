@@ -10,5 +10,5 @@ shows
   .map((s) => new Show(s))
   .forEach((s) => s.updateHtml()
   .then(() => {
-    console.log(`++ ${s.name} done`);
+    s.parseHtml()
   }));
