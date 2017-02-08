@@ -14,6 +14,33 @@ let Show = function(showObj) {
   this.abbr = showObj.abbr;
 };
 
+Show.HTMLBaseDir = './data/';
+
+Show.checkHtmlDir = function() {
+  var deferred = q.defer();
+  fs.stat(Show.HTMLBaseDir, (err, stat) => {
+    if(!err) {
+      deferred.resolve();
+      return;
+    }
+
+    if(err.code != "ENOENT") {
+      console.log(`- Error ${err} trying to access directory ${Show.HTMLBaseDir}. Unfortunately, we can't continue without access to this folder :(`);
+      deferred.reject();
+      process.exit(1);
+    }
+
+    fs.mkdir(Show.HTMLBaseDir, (err, stat) => {
+      if(!err) {
+        deferred.resolve();
+        return;
+      }
+      console.log(`- Error ${err} trying to create directory ${Show.HTMLBaseDir}. Unfortunately, we can't continue without this folder`);
+    });
+  });
+  return deferred.promise;
+};
+
 /*************************************************************************************************
  ** HTML Parsing **
  *************************************************************************************************/
@@ -32,7 +59,7 @@ Show.prototype._parseHeaderLine = function($, headerColumns) {
     }
   }
   return {number: numberIndex, title: titleIndex, date: dateIndex};
-}
+};
 
 Show.prototype.parseHtml = function() {
   let $ = cheerio.load(this._html);
@@ -62,7 +89,7 @@ Show.prototype.parseHtml = function() {
  ** Read/Write HTML File **
  *************************************************************************************************/
 
-Show.prototype.getFilename = function() {return './data/' + this.abbr + '.html'};
+Show.prototype.getFilename = function() {return Show.HTMLBaseDir + this.abbr + '.html'};
 
 Show.prototype.readFileAsync = function(deferred) {
   fs.readFile(this.getFilename(), 'utf8', (error, data) => {
